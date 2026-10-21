@@ -98,6 +98,19 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/home_key_service" />
         </service>
+        <!-- Fire OS: covers Amazon's protected home with this launcher. Opt-in; see FireHomeService. -->
+        <service
+            android:name=".FireHomeService"
+            android:label="@string/fire_home_name"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/fire_home_service" />
+        </service>
 
         <!-- The same clock, started by Home itself after home_idle_clock_minutes without input. -->
         <activity

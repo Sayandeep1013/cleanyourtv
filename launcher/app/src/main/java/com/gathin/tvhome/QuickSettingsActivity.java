@@ -60,6 +60,7 @@ public final class QuickSettingsActivity extends Activity {
         if (status != 0) hint.setText(status);
         else hint.setVisibility(View.GONE);
         row.setOnClickListener(v -> {
+            if (Settings.ACTION_SETTINGS.equals(target.getAction())) FireHomeService.allowAmazonSettings();
             try {
                 startActivity(target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             } catch (ActivityNotFoundException e) {

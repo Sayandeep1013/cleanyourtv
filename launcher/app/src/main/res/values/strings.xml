@@ -54,6 +54,8 @@
     <string name="input_key_service_description">Opens the input switcher when the remote\'s Input button is pressed.</string>
     <string name="home_key_name">Home button</string>
     <string name="home_key_description">Makes the remote\'s Home button open this launcher.</string>
+    <string name="fire_home_name">Fire TV Home</string>
+    <string name="fire_home_description">Brings this launcher back whenever the Fire TV home screen appears.</string>
     <string name="card_prompt_title">New card from %1$s</string>
     <string name="card_prompt_body">%1$s can show a card on your home screen. Keeping it hidden leaves the app\'s normal tile as it is.</string>
     <string name="card_prompt_names">The card is named \'%1$s\'. The app is \'%2$s\'.</string>

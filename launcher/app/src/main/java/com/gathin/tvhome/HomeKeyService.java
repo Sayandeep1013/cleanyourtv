@@ -60,6 +60,7 @@ public class HomeKeyService extends AccessibilityService {
             if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
                 Intent open = settingsPanel ? new Intent(this, QuickSettingsActivity.class)
                         : new Intent(Settings.ACTION_SETTINGS);
+                if (!settingsPanel) FireHomeService.allowAmazonSettings();
                 startActivity(open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             }
             return true;

@@ -201,6 +201,7 @@ public final class LauncherSettingsActivity extends Activity {
     }
 
     private void open(Intent intent) {
+        if (Settings.ACTION_SETTINGS.equals(intent.getAction())) FireHomeService.allowAmazonSettings();
         try {
             startActivity(intent);
         } catch (ActivityNotFoundException | SecurityException e) {

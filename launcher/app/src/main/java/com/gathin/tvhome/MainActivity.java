@@ -2225,6 +2225,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void open(Intent i) {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (Settings.ACTION_SETTINGS.equals(i.getAction())) FireHomeService.allowAmazonSettings();
         try {
             startActivity(i);
         } catch (ActivityNotFoundException e) {
