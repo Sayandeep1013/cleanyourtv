@@ -237,7 +237,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Set<String> tvPackages = new HashSet<>();
         for (ResolveInfo ri : found) if (ri.activityInfo != null) tvPackages.add(ri.activityInfo.packageName);
         leanbackPackages = tvPackages;
-        Set<String> added = LibraryApps.load(ctx);
+        // A dock_apps entry counts as added from the library: Fire OS's Appstore and Silk register only
+        // CATEGORY_LAUNCHER, and naming them in the dock should be enough to show them.
+        Set<String> added = new HashSet<>(LibraryApps.load(ctx));
+        added.addAll(favourites);
         Set<String> removed = LibraryApps.loadRemoved(ctx);
         if (!added.isEmpty()) {
             Set<String> seen = new HashSet<>(tvPackages);

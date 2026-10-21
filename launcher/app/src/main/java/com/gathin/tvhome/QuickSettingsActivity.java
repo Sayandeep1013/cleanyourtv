@@ -25,6 +25,27 @@ public final class QuickSettingsActivity extends Activity {
         setContentView(R.layout.activity_quick_settings);
         findViewById(R.id.scrim).setOnClickListener(v -> finish());
         LinearLayout rows = findViewById(R.id.rows);
+        if (FireHomeService.isFireOs()) {
+            // Fire OS 7's top Settings grid is a pane of Amazon's home (see FireHomeService); its pages are
+            // their own activities in com.amazon.tv.settings.v2, so list those instead.
+            addRow(rows, R.drawable.ic_wifi, R.string.quick_network, 0, new Intent(Settings.ACTION_WIFI_SETTINGS));
+            addRow(rows, R.drawable.ic_picture, R.string.fire_display_sounds, 0,
+                    new Intent("com.amazon.device.settings.action.DISPLAY_AND_SOUNDS"));
+            addRow(rows, R.drawable.ic_apps, R.string.fire_applications, 0,
+                    new Intent("com.amazon.device.settings.action.APPLICATIONS"));
+            addRow(rows, R.drawable.ic_input, R.string.fire_controllers, 0,
+                    new Intent("com.amazon.device.settings.action.CONTROLLERS"));
+            addRow(rows, R.drawable.ic_settings, R.string.fire_device, 0,
+                    new Intent("com.amazon.device.settings.action.DEVICE"));
+            addRow(rows, R.drawable.ic_lock, R.string.fire_preferences, 0,
+                    new Intent("com.amazon.device.settings.action.PREFERENCES"));
+            addRow(rows, R.drawable.ic_av, R.string.fire_accessibility, 0,
+                    new Intent("com.amazon.device.settings.action.ACCESSIBILITY"));
+            addRow(rows, R.drawable.ic_home_settings, R.string.launcher_settings, 0,
+                    new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_LAUNCHER_SETTINGS));
+            rows.getChildAt(0).requestFocus();
+            return;
+        }
         addRow(rows, R.drawable.ic_settings, R.string.tv_settings, 0, new Intent(Settings.ACTION_SETTINGS));
         addRow(rows, R.drawable.ic_picture, R.string.quick_picture, 0, new Intent(Settings.ACTION_DISPLAY_SETTINGS));
         addRow(rows, R.drawable.ic_wifi, R.string.quick_network, 0, new Intent(Settings.ACTION_WIFI_SETTINGS));
