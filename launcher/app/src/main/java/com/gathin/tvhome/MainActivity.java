@@ -510,7 +510,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         btnInputs = findViewById(R.id.btnInputs);
         View btnSettings = findViewById(R.id.btnSettings);
-        btnInputs.setOnClickListener(v -> showInputs());
+        // Fire OS keeps input switching to Amazon (its player needs com.amazon.tv.permission.TUNE_INPUT,
+        // signature|amazon), so open its Settings grid, whose first card is Inputs.
+        btnInputs.setOnClickListener(v -> {
+            if (FireHomeService.isFireOs()) open(new Intent(Settings.ACTION_SETTINGS));
+            else showInputs();
+        });
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnWifi.setOnLongClickListener(v -> {
             open(systemIntent(Settings.ACTION_WIFI_SETTINGS));

@@ -1,6 +1,7 @@
 package com.gathin.tvhome;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.os.Build;
@@ -15,11 +16,13 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * Fire OS keeps Home: com.amazon.tv.launcher is protected (pm disable-user is refused) and
@@ -55,6 +58,11 @@ public class FireHomeService extends AccessibilityService {
     private static final long CURTAIN_MAX_MS = 8000;
     /** Time for the launcher to draw its first frame before the curtain lifts. */
     private static final long CURTAIN_LIFT_DELAY_MS = 300;
+    /** Content changes come in bursts; look at the view tree at most this often during a Settings visit. */
+    private static final long PANE_CHECK_MS = 400;
+    private static final String SETTINGS_CARD = "com.amazon.tv.launcher:id/settings_card_view";
+    private static final String HOME_TILE = "com.amazon.tv.launcher:id/badged_app_tile";
+    private static final String HOME_ROW = "com.amazon.tv.launcher:id/slim_image";
 
     private static volatile long settingsAllowedUntil;
 
@@ -77,14 +85,20 @@ public class FireHomeService extends AccessibilityService {
     private final Runnable liftCurtain = this::removeCurtain;
     private View curtain;
     private boolean inSettings;
+    private boolean sawSettingsPane;
     private long lastLaunch;
+    private long lastPaneCheck;
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
         CharSequence pkgName = event.getPackageName();
         if (pkgName == null) return;
         String pkg = pkgName.toString();
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            if (inSettings && pkg.equals(AMAZON_LAUNCHER)) checkSettingsPane();
+            return;
+        }
+        if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
         if (isOverlay(pkg)) return;
         if (pkg.equals(AMAZON_SETTINGS)) {
             removeCurtain();
@@ -92,7 +106,7 @@ public class FireHomeService extends AccessibilityService {
         }
         if (!pkg.equals(AMAZON_LAUNCHER)) {
             // Any app (this launcher included) in front ends a Settings visit and lifts the curtain.
-            inSettings = false;
+            leaveSettings();
             if (curtain != null) {
                 handler.removeCallbacks(liftCurtain);
                 handler.postDelayed(liftCurtain, pkg.equals(getPackageName()) ? CURTAIN_LIFT_DELAY_MS : 0);
@@ -100,16 +114,71 @@ public class FireHomeService extends AccessibilityService {
             return;
         }
         if (SystemClock.uptimeMillis() < settingsAllowedUntil) {
-            inSettings = true;
+            enterSettings();
             return;
         }
         // Back from a Settings page lands on the grid again; that's still the Settings visit.
         if (inSettings) return;
         CharSequence cls = event.getClassName();
-        if (cls != null && AMAZON_HOME.contentEquals(cls)) {
-            showCurtain();
-            openHome();
+        if (cls != null && AMAZON_HOME.contentEquals(cls)) coverAmazonHome();
+    }
+
+    private void coverAmazonHome() {
+        showCurtain();
+        openHome();
+    }
+
+    /** A Settings visit: also watch the Amazon launcher's content, to see Back leave the grid for its home. */
+    private void enterSettings() {
+        if (inSettings) return;
+        inSettings = true;
+        sawSettingsPane = false;
+        setEventTypes(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+    }
+
+    private void leaveSettings() {
+        if (!inSettings) return;
+        inSettings = false;
+        setEventTypes(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+    }
+
+    private void setEventTypes(int types) {
+        AccessibilityServiceInfo info = getServiceInfo();
+        if (info == null || info.eventTypes == types) return;
+        info.eventTypes = types;
+        setServiceInfo(info);
+    }
+
+    /**
+     * The grid and Amazon's home are panes of one activity, so leaving the grid with Back sends no window
+     * change. Their views tell them apart (uiautomator on AFTMV00): the grid has settings_card_view, the
+     * home pane its content rows. Only after the grid was seen, so the home pane still on screen while the
+     * grid opens doesn't count.
+     */
+    private void checkSettingsPane() {
+        long now = SystemClock.uptimeMillis();
+        if (now - lastPaneCheck < PANE_CHECK_MS) return;
+        lastPaneCheck = now;
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return;
+        try {
+            if (!AMAZON_LAUNCHER.contentEquals(root.getPackageName())) return;
+            if (hasView(root, SETTINGS_CARD)) {
+                sawSettingsPane = true;
+            } else if (sawSettingsPane && (hasView(root, HOME_TILE) || hasView(root, HOME_ROW))) {
+                leaveSettings();
+                coverAmazonHome();
+            }
+        } finally {
+            root.recycle();
         }
+    }
+
+    private static boolean hasView(AccessibilityNodeInfo root, String id) {
+        List<AccessibilityNodeInfo> found = root.findAccessibilityNodeInfosByViewId(id);
+        boolean any = !found.isEmpty();
+        for (AccessibilityNodeInfo node : found) node.recycle();
+        return any;
     }
 
     @Override
@@ -118,7 +187,7 @@ public class FireHomeService extends AccessibilityService {
         // does, catch it here so Amazon's home never shows, including from inside the Settings grid.
         if (event.getKeyCode() != KeyEvent.KEYCODE_HOME) return false;
         if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
-            inSettings = false;
+            leaveSettings();
             openHome();
         }
         return true;

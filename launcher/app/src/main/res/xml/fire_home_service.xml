@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Window state changes from every package (FireHomeService tracks which app is in front to tell a
-     Settings visit from Home), no window content; key filtering for the Home button where Fire OS
+     Settings visit from Home); during a Settings visit only, FireHomeService adds content changes and
+     reads view ids to see Amazon's home pane come back. Key filtering for the Home button where Fire OS
      passes it. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagRequestFilterKeyEvents"
+    android:accessibilityFlags="flagRequestFilterKeyEvents|flagReportViewIds"
     android:canRequestFilterKeyEvents="true"
-    android:canRetrieveWindowContent="false"
+    android:canRetrieveWindowContent="true"
     android:notificationTimeout="0"
     android:description="@string/fire_home_description" />
