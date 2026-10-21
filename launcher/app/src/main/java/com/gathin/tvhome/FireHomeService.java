@@ -61,8 +61,7 @@ public class FireHomeService extends AccessibilityService {
     /** Content changes come in bursts; look at the view tree at most this often during a Settings visit. */
     private static final long PANE_CHECK_MS = 400;
     private static final String SETTINGS_CARD = "com.amazon.tv.launcher:id/settings_card_view";
-    private static final String HOME_TILE = "com.amazon.tv.launcher:id/badged_app_tile";
-    private static final String HOME_ROW = "com.amazon.tv.launcher:id/slim_image";
+    private static final String AMAZON_INPUTS = "com.amazon.tv.inputpreference.service";
 
     private static volatile long settingsAllowedUntil;
 
@@ -83,6 +82,10 @@ public class FireHomeService extends AccessibilityService {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable liftCurtain = this::removeCurtain;
+    private final Runnable paneCheck = () -> {
+        this.lastPaneCheck = 0;
+        if (this.inSettings) checkSettingsPane();
+    };
     private View curtain;
     private boolean inSettings;
     private boolean sawSettingsPane;
@@ -100,7 +103,9 @@ public class FireHomeService extends AccessibilityService {
         }
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
         if (isOverlay(pkg)) return;
-        if (pkg.equals(AMAZON_SETTINGS)) {
+        // Settings pages, and the Inputs list and HDMI player the grid's Inputs card opens, are part of a
+        // Settings visit.
+        if (pkg.equals(AMAZON_SETTINGS) || pkg.equals(AMAZON_INPUTS)) {
             removeCurtain();
             return;
         }
@@ -131,6 +136,7 @@ public class FireHomeService extends AccessibilityService {
     /** A Settings visit: also watch the Amazon launcher's content, to see Back leave the grid for its home. */
     private void enterSettings() {
         if (inSettings) return;
+        Log.i(TAG, "Settings visit");
         inSettings = true;
         sawSettingsPane = false;
         setEventTypes(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
@@ -138,7 +144,9 @@ public class FireHomeService extends AccessibilityService {
 
     private void leaveSettings() {
         if (!inSettings) return;
+        Log.i(TAG, "Settings visit over");
         inSettings = false;
+        handler.removeCallbacks(paneCheck);
         setEventTypes(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
     }
 
@@ -151,13 +159,19 @@ public class FireHomeService extends AccessibilityService {
 
     /**
      * The grid and Amazon's home are panes of one activity, so leaving the grid with Back sends no window
-     * change. Their views tell them apart (uiautomator on AFTMV00): the grid has settings_card_view, the
-     * home pane its content rows. Only after the grid was seen, so the home pane still on screen while the
-     * grid opens doesn't count.
+     * change. The grid's cards are settings_card_view (uiautomator on AFTMV00); the home pane has no
+     * fixed view of its own (its content rows can be scrolled away under the banner, which the grid shows
+     * too), so once the grid was seen, the launcher without it is the home pane. Only after the grid was
+     * seen, so the home pane still on screen while the grid opens doesn't count.
      */
     private void checkSettingsPane() {
         long now = SystemClock.uptimeMillis();
-        if (now - lastPaneCheck < PANE_CHECK_MS) return;
+        if (now - lastPaneCheck < PANE_CHECK_MS) {
+            // Look again once the burst settles, so its last change is not the one skipped.
+            handler.removeCallbacks(paneCheck);
+            handler.postDelayed(paneCheck, PANE_CHECK_MS);
+            return;
+        }
         lastPaneCheck = now;
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return;
@@ -165,7 +179,7 @@ public class FireHomeService extends AccessibilityService {
             if (!AMAZON_LAUNCHER.contentEquals(root.getPackageName())) return;
             if (hasView(root, SETTINGS_CARD)) {
                 sawSettingsPane = true;
-            } else if (sawSettingsPane && (hasView(root, HOME_TILE) || hasView(root, HOME_ROW))) {
+            } else if (sawSettingsPane) {
                 leaveSettings();
                 coverAmazonHome();
             }
